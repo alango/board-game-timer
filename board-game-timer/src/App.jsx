@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, RotateCcw, Pause, Play, PlusCircle, MinusCircle, ChevronRight, ArrowRight, RotateCw } from 'lucide-react';
 
 const BoardGameTimer = () => {
   const [players, setPlayers] = useState([
-    { id: 1, name: 'Player 1', time: 0, color: '#3B82F6' },
-    { id: 2, name: 'Player 2', time: 0, color: '#EF4444' },
+    { id: 1, name: 'Player 1', time: 0, turnCount: 0, color: '#3B82F6' },
+    { id: 2, name: 'Player 2', time: 0, turnCount: 0, color: '#EF4444' },
   ]);
   const [activePlayer, setActivePlayer] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
+  const [currentTurnTime, setCurrentTurnTime] = useState(0);
   const [direction, setDirection] = useState('clockwise'); // 'clockwise', 'anticlockwise', 'manual'
   const [totalGameTime, setTotalGameTime] = useState(0);
 
@@ -19,6 +20,7 @@ const BoardGameTimer = () => {
         id: Date.now(), 
         name: `Player ${players.length + 1}`, 
         time: 0,
+        turnCount: 0,
         color: colors[players.length % colors.length]
       }]);
     }
@@ -51,28 +53,61 @@ const BoardGameTimer = () => {
   };
 
   // Next turn
-  const nextTurn = () => {
-    if (direction === 'clockwise') {
-      setActivePlayer((activePlayer + 1) % players.length);
-    } else if (direction === 'anticlockwise') {
-      setActivePlayer((activePlayer - 1 + players.length) % players.length);
-    }
-    // For 'manual', the player is selected directly by clicking
-  };
+  const nextTurn = useCallback(() => {
+    if (direction === 'manual') return; // Prevent nextTurn in manual mode
+    
+    // Update turn count and total time for current player
+    setPlayers(prevPlayers => {
+      const newPlayers = [...prevPlayers];
+      newPlayers[activePlayer] = {
+        ...newPlayers[activePlayer],
+        turnCount: newPlayers[activePlayer].turnCount + 1,
+        time: newPlayers[activePlayer].time + currentTurnTime
+      };
+      return newPlayers;
+    });
+    
+    // Reset current turn time
+    setCurrentTurnTime(0);
+    
+    // Use functional updates for activePlayer to avoid stale closure
+    setActivePlayer(prevActivePlayer => {
+      if (direction === 'clockwise') {
+        return (prevActivePlayer + 1) % players.length;
+      } else if (direction === 'anticlockwise') {
+        return (prevActivePlayer - 1 + players.length) % players.length;
+      }
+      return prevActivePlayer;
+    });
+  }, [direction, activePlayer, currentTurnTime, players.length]);
 
   // Select player manually
-  const selectPlayer = (index) => {
+  const selectPlayer = useCallback((index) => {
     if (direction === 'manual') {
+      // Update turn count and total time for current player if switching
+      if (index !== activePlayer) {
+        setPlayers(prevPlayers => {
+          const newPlayers = [...prevPlayers];
+          newPlayers[activePlayer] = {
+            ...newPlayers[activePlayer],
+            turnCount: newPlayers[activePlayer].turnCount + 1,
+            time: newPlayers[activePlayer].time + currentTurnTime
+          };
+          return newPlayers;
+        });
+        setCurrentTurnTime(0);
+      }
       setActivePlayer(index);
     }
-  };
+  }, [direction, activePlayer, currentTurnTime]);
 
   // Reset all timers
   const resetTimers = () => {
     setIsRunning(false);
     setActivePlayer(0);
     setTotalGameTime(0);
-    setPlayers(players.map(player => ({ ...player, time: 0 })));
+    setCurrentTurnTime(0);
+    setPlayers(players.map(player => ({ ...player, time: 0, turnCount: 0 })));
   };
 
   // Toggle pause/play
@@ -86,11 +121,7 @@ const BoardGameTimer = () => {
     
     if (isRunning) {
       interval = setInterval(() => {
-        setPlayers(prevPlayers => {
-          const newPlayers = [...prevPlayers];
-          newPlayers[activePlayer].time += 1;
-          return newPlayers;
-        });
+        setCurrentTurnTime(prev => prev + 1);
         setTotalGameTime(prev => prev + 1);
       }, 1000);
     }
@@ -98,14 +129,8 @@ const BoardGameTimer = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRunning, activePlayer]);
+  }, [isRunning]);
 
-  // Calculate average turn time
-  const getAverageTurnTime = (playerId) => {
-    const player = players.find(p => p.id === playerId);
-    if (!player) return '00:00';
-    return formatTime(Math.floor(player.time));
-  };
 
   // Calculate player position in circle
   const getPlayerPosition = (index, totalPlayers) => {
@@ -187,10 +212,10 @@ const BoardGameTimer = () => {
             return (
               <div 
                 key={player.id}
-                onClick={() => selectPlayer(index)}
+                onClick={() => direction === 'manual' ? selectPlayer(index) : null}
                 className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${
                   isActive ? 'scale-110 z-10' : ''
-                } transition-all duration-300 cursor-pointer`}
+                } transition-all duration-300 ${direction === 'manual' ? 'cursor-pointer' : 'cursor-default'}`}
                 style={{ 
                   left: `calc(50% + ${x}px)`, 
                   top: `calc(50% + ${y}px)`,
@@ -203,17 +228,36 @@ const BoardGameTimer = () => {
                   style={{ backgroundColor: player.color + '33' }} // Adding transparency
                 >
                   <input
-                    className="bg-transparent text-center w-20 font-medium mb-1 text-sm"
+                    className="bg-transparent text-center w-20 font-medium mb-1 text-xs"
                     value={player.name}
                     onChange={(e) => updatePlayerName(player.id, e.target.value)}
                     onClick={(e) => e.stopPropagation()}
                   />
-                  <div className="flex items-center justify-center gap-1">
-                    <Clock size={14} />
-                    <span className="text-sm font-mono">
-                      {formatTime(player.time)}
-                    </span>
-                  </div>
+                  {isActive ? (
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-blue-600 mb-1">
+                        {formatTime(currentTurnTime)}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        Total: {formatTime(player.time)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Turns: {player.turnCount}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <Clock size={12} />
+                        <span className="text-xs font-mono">
+                          {formatTime(player.time)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Turns: {player.turnCount}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -230,26 +274,6 @@ const BoardGameTimer = () => {
           )}
         </div>
 
-        {/* Stats */}
-        <div className="mt-6">
-          <h3 className="text-lg font-medium mb-2">Player Stats</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {players.map((player) => (
-              <div key={player.id} className="bg-gray-50 p-2 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: player.color }}
-                  ></div>
-                  <span className="text-sm font-medium">{player.name}</span>
-                </div>
-                <div className="text-xs text-gray-500">
-                  Turn Time: {getAverageTurnTime(player.id)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
