@@ -179,7 +179,7 @@ const BoardGameTimer = () => {
         </div>
 
         {/* Players Circle */}
-        <div className="relative h-80 flex items-center justify-center mb-4">
+        <div className="relative h-96 flex items-center justify-center mb-4">
           {players.map((player, index) => {
             const { x, y } = getPlayerPosition(index, players.length);
             const isActive = index === activePlayer;
