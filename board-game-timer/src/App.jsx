@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Clock, RotateCcw, Pause, Play, PlusCircle, MinusCircle, ChevronRight, ArrowRight, RotateCw } from 'lucide-react';
+import { Clock, RotateCcw, Pause, Play, PlusCircle, MinusCircle, RotateCw } from 'lucide-react';
+
+// Constants
+const PLAYER_COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
+const MAX_PLAYERS = 8;
+const MIN_PLAYERS = 2;
+const CIRCLE_RADIUS = 130;
 
 const BoardGameTimer = () => {
   const [players, setPlayers] = useState([
@@ -12,23 +18,35 @@ const BoardGameTimer = () => {
   const [direction, setDirection] = useState('clockwise'); // 'clockwise', 'anticlockwise', 'manual'
   const [totalGameTime, setTotalGameTime] = useState(0);
 
+  // Helper function to update player stats
+  const updatePlayerStats = useCallback((activePlayerIndex, currentTime) => {
+    setPlayers(prevPlayers => {
+      const newPlayers = [...prevPlayers];
+      newPlayers[activePlayerIndex] = {
+        ...newPlayers[activePlayerIndex],
+        turnCount: newPlayers[activePlayerIndex].turnCount + 1,
+        time: newPlayers[activePlayerIndex].time + currentTime
+      };
+      return newPlayers;
+    });
+  }, []);
+
   // Add player
   const addPlayer = () => {
-    if (players.length < 8) {
-      const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
+    if (players.length < MAX_PLAYERS) {
       setPlayers([...players, { 
         id: Date.now(), 
         name: `Player ${players.length + 1}`, 
         time: 0,
         turnCount: 0,
-        color: colors[players.length % colors.length]
+        color: PLAYER_COLORS[players.length % PLAYER_COLORS.length]
       }]);
     }
   };
 
   // Remove player
   const removePlayer = () => {
-    if (players.length > 2) {
+    if (players.length > MIN_PLAYERS) {
       const newPlayers = [...players];
       newPlayers.pop();
       setPlayers(newPlayers);
@@ -57,15 +75,7 @@ const BoardGameTimer = () => {
     if (direction === 'manual') return; // Prevent nextTurn in manual mode
     
     // Update turn count and total time for current player
-    setPlayers(prevPlayers => {
-      const newPlayers = [...prevPlayers];
-      newPlayers[activePlayer] = {
-        ...newPlayers[activePlayer],
-        turnCount: newPlayers[activePlayer].turnCount + 1,
-        time: newPlayers[activePlayer].time + currentTurnTime
-      };
-      return newPlayers;
-    });
+    updatePlayerStats(activePlayer, currentTurnTime);
     
     // Reset current turn time
     setCurrentTurnTime(0);
@@ -79,27 +89,19 @@ const BoardGameTimer = () => {
       }
       return prevActivePlayer;
     });
-  }, [direction, activePlayer, currentTurnTime, players.length]);
+  }, [direction, activePlayer, currentTurnTime, players.length, updatePlayerStats]);
 
   // Select player manually
   const selectPlayer = useCallback((index) => {
     if (direction === 'manual') {
       // Update turn count and total time for current player if switching
       if (index !== activePlayer) {
-        setPlayers(prevPlayers => {
-          const newPlayers = [...prevPlayers];
-          newPlayers[activePlayer] = {
-            ...newPlayers[activePlayer],
-            turnCount: newPlayers[activePlayer].turnCount + 1,
-            time: newPlayers[activePlayer].time + currentTurnTime
-          };
-          return newPlayers;
-        });
+        updatePlayerStats(activePlayer, currentTurnTime);
         setCurrentTurnTime(0);
       }
       setActivePlayer(index);
     }
-  }, [direction, activePlayer, currentTurnTime]);
+  }, [direction, activePlayer, currentTurnTime, updatePlayerStats]);
 
   // Reset all timers
   const resetTimers = () => {
@@ -136,9 +138,8 @@ const BoardGameTimer = () => {
   const getPlayerPosition = (index, totalPlayers) => {
     const angleStep = (2 * Math.PI) / totalPlayers;
     const angle = index * angleStep - Math.PI / 2; // Start from top
-    const radius = 130; // Circle radius
-    const x = radius * Math.cos(angle);
-    const y = radius * Math.sin(angle);
+    const x = CIRCLE_RADIUS * Math.cos(angle);
+    const y = CIRCLE_RADIUS * Math.sin(angle);
     return { x, y };
   };
 
@@ -163,10 +164,10 @@ const BoardGameTimer = () => {
           </div>
           
           <div className="flex justify-center gap-6 mb-6">
-            <button onClick={addPlayer} disabled={players.length >= 8} className="flex items-center gap-1 text-sm hover:cursor-pointer hover:text-blue-600 disabled:hover:cursor-not-allowed disabled:hover:text-gray-400">
+            <button onClick={addPlayer} disabled={players.length >= MAX_PLAYERS} className="flex items-center gap-1 text-sm hover:cursor-pointer hover:text-blue-600 disabled:hover:cursor-not-allowed disabled:hover:text-gray-400">
               <PlusCircle size={16} /> Add Player
             </button>
-            <button onClick={removePlayer} disabled={players.length <= 2} className="flex items-center gap-1 text-sm hover:cursor-pointer hover:text-red-600 disabled:hover:cursor-not-allowed disabled:hover:text-gray-400">
+            <button onClick={removePlayer} disabled={players.length <= MIN_PLAYERS} className="flex items-center gap-1 text-sm hover:cursor-pointer hover:text-red-600 disabled:hover:cursor-not-allowed disabled:hover:text-gray-400">
               <MinusCircle size={16} /> Remove Player
             </button>
           </div>
@@ -267,9 +268,10 @@ const BoardGameTimer = () => {
           {direction !== 'manual' && (
             <button
               onClick={nextTurn}
-              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg z-20"
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-16 h-16 flex flex-col items-center justify-center shadow-lg z-20"
             >
-              {direction === 'clockwise' ? <RotateCw size={24} /> : <RotateCcw size={24} />}
+              {direction === 'clockwise' ? <RotateCw size={20} /> : <RotateCcw size={20} />}
+              <span className="text-xs mt-1">Next</span>
             </button>
           )}
         </div>
