@@ -136,7 +136,7 @@ const BoardGameTimer = () => {
   const getPlayerPosition = (index, totalPlayers) => {
     const angleStep = (2 * Math.PI) / totalPlayers;
     const angle = index * angleStep - Math.PI / 2; // Start from top
-    const radius = 150; // Circle radius
+    const radius = 130; // Circle radius
     const x = radius * Math.cos(angle);
     const y = radius * Math.sin(angle);
     return { x, y };
@@ -150,23 +150,23 @@ const BoardGameTimer = () => {
           <div className="flex justify-center gap-4 mb-4">
             <button 
               onClick={resetTimers}
-              className="flex items-center gap-1 bg-gray-200 hover:bg-gray-300 rounded-lg px-3 py-1"
+              className="flex items-center gap-1 bg-gray-200 hover:bg-gray-300 hover:cursor-pointer rounded-lg px-3 py-1"
             >
               <RotateCcw size={16} /> Reset
             </button>
             <button 
               onClick={toggleTimer}
-              className={`flex items-center gap-1 ${isRunning ? 'bg-yellow-200 hover:bg-yellow-300' : 'bg-green-200 hover:bg-green-300'} rounded-lg px-3 py-1`}
+              className={`flex items-center gap-1 ${isRunning ? 'bg-yellow-200 hover:bg-yellow-300' : 'bg-green-200 hover:bg-green-300'} hover:cursor-pointer rounded-lg px-3 py-1`}
             >
               {isRunning ? <Pause size={16} /> : <Play size={16} />} {isRunning ? 'Pause' : 'Start'}
             </button>
           </div>
           
           <div className="flex justify-center gap-6 mb-6">
-            <button onClick={addPlayer} disabled={players.length >= 8} className="flex items-center gap-1 text-sm">
+            <button onClick={addPlayer} disabled={players.length >= 8} className="flex items-center gap-1 text-sm hover:cursor-pointer hover:text-blue-600 disabled:hover:cursor-not-allowed disabled:hover:text-gray-400">
               <PlusCircle size={16} /> Add Player
             </button>
-            <button onClick={removePlayer} disabled={players.length <= 2} className="flex items-center gap-1 text-sm">
+            <button onClick={removePlayer} disabled={players.length <= 2} className="flex items-center gap-1 text-sm hover:cursor-pointer hover:text-red-600 disabled:hover:cursor-not-allowed disabled:hover:text-gray-400">
               <MinusCircle size={16} /> Remove Player
             </button>
           </div>
